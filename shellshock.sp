@@ -25,7 +25,6 @@
 //int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
 new Handle:hGiveAmmo;
 //void CBasePlayer::RemoveAllItems( bool removeSuit )
-new Handle:hRemoveAllItems;
 //void CHL2_Player::PreThink(void)
 new Handle:hPreThink;
 //virtual void CBasePlayer::Spawn()
@@ -61,7 +60,6 @@ new Float:nextEligibleDamageTime[64]
 
 //Convars
 new Handle:hss_respawn_time;
-new Handle:hss_playerspeed;
 new Handle:hss_physcannon;
 new Handle:hss_shotgun;
 new Handle:hss_crossbow;
@@ -79,7 +77,6 @@ new Handle:hss_shotgun_damage_multiplier;
 new Handle:hss_shotgun_refire;
 //Actual values
 new Float:ss_respawn_time = 0.5;
-new Float:ss_playerspeed = 320.0;
 new bool:ss_physcannon = true;
 new bool:ss_shotgun = true;
 new bool:ss_crossbow = false;
@@ -125,13 +122,7 @@ public OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain);
 	hGiveAmmo = EndPrepSDKCall();
-	
-	//RemoveAllItems
-	StartPrepSDKCall(SDKCall_Player);
-	PrepSDKCall_SetFromConf(config, SDKConf_Virtual, "RemoveAllItems");
-	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain);
-	hRemoveAllItems = EndPrepSDKCall();
-	
+
 	//SetAnimation
 	StartPrepSDKCall(SDKCall_Player);
 	PrepSDKCall_SetFromConf(config, SDKConf_Virtual, "SetAnimation");
@@ -181,16 +172,7 @@ CreateConVars()
 		GetConVarString(hss_respawn_time, convarValue, 32)
 		ChangeCVAR(hss_respawn_time, convarValue);
 	}
-	
-	hss_playerspeed = FindConVar("ss_playerspeed");
-	if(hss_playerspeed == INVALID_HANDLE)
-		hss_playerspeed = CreateConVar("ss_playerspeed", "320", "Sets the speed of the players", FCVAR_PROTECTED, true, 1.0);
-	else
-	{
-		GetConVarString(hss_playerspeed, convarValue, 32)
-		ChangeCVAR(hss_playerspeed, convarValue);
-	}
-	
+
 	hss_physcannon = FindConVar("ss_physcannon");
 	if(hss_physcannon == INVALID_HANDLE)
 		hss_physcannon = CreateConVar("ss_physcannon", "1", "Sets whether players spawn with the gravity gun", FCVAR_PROTECTED, true, 0.0, true, 1.0);
@@ -327,7 +309,6 @@ CreateConVars()
 	}
 
 	HookConVarChange(hss_respawn_time, SSConVarChanged);
-	HookConVarChange(hss_playerspeed, SSConVarChanged);
 	HookConVarChange(hss_physcannon, SSConVarChanged);
 	HookConVarChange(hss_shotgun, SSConVarChanged);
 	HookConVarChange(hss_crossbow, SSConVarChanged);
@@ -361,10 +342,6 @@ ChangeCVAR(Handle:cvar, const String:newVal[])
 	if(cvar == hss_respawn_time)
 	{
 		ss_respawn_time = StringToFloat(newVal);
-	}
-	else if(cvar == hss_playerspeed)
-	{
-		ss_playerspeed = StringToFloat(newVal);
 	}
 	else if(cvar == hss_physcannon)
 	{
@@ -498,7 +475,7 @@ public InitCrossbowHooks(Handle:config)
 
 public /*Captain*/HookClient(client)
 {
-	PrintToServer("Hooking client: %i", client);
+//	PrintToServer("Hooking client: %i", client);
 	DHookEntity(hPreThink, true, client);
 	DHookEntity(hWeapon_Equip, true, client);
 	SDKHook(client, SDKHook_SpawnPost, SpawnPost);
@@ -603,7 +580,6 @@ public void SpawnPost(int entity)
 	//Spawn protection
 	nextEligibleDamageTime[entity] = GetGameTime() + 0.5;
 	//Strip all that stuff they got in their initial spawn.
-	SDKCall(hRemoveAllItems, entity, 0);
 	
 	GivePlayerSpawnWeapons(entity);
 }
