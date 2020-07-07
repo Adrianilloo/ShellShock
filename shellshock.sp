@@ -1,5 +1,6 @@
 #include <sourcemod>
 #include <dhooks>
+#include <sdkhooks>
 #include <sdktools>
 #include <sdktools_gamerules>
 #include <sdktools_trace>
@@ -29,7 +30,6 @@ new Handle:hRemoveAllItems;
 new Handle:hPreThink;
 //virtual void CBasePlayer::Spawn()
 new Handle:hSpawnCall;
-new Handle:hSpawnHook;
 //virtual void SetAnimation( PLAYER_ANIM playerAnim );
 new Handle:hSetAnimation;
 //virtual int GetMaxClip1( void ) const;
@@ -160,8 +160,7 @@ public OnPluginStart()
 	CloseHandle(config);
 	
 	//Hook existing clients
-	new playersconnected = GetMaxClients();
-	for (new i = 1; i <= playersconnected; i++)
+	for (new i = 1; i <= MaxClients; i++)
     {
         if(IsClientInGame(i))
         {    
@@ -439,11 +438,7 @@ public InitClientHooks(Handle:config)
 	offset = GameConfGetOffset(config, "Weapon_Equip");
 	hWeapon_Equip = DHookCreate(offset, HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, Weapon_EquipPost);
 	DHookAddParam(hWeapon_Equip, HookParamType_CBaseEntity);
-	
-	//Spawn post
-	offset = GameConfGetOffset(config, "Spawn");
-	hSpawnHook = DHookCreate(offset, HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, SpawnPost);
-	
+
 	//OnTakeDamage pre
 	offset = GameConfGetOffset(config, "OnTakeDamage");
 	hOnTakeDamage = DHookCreate(offset, HookType_Entity, ReturnType_Int, ThisPointer_CBaseEntity, OnTakeDamagePre);
@@ -506,7 +501,7 @@ public /*Captain*/HookClient(client)
 	PrintToServer("Hooking client: %i", client);
 	DHookEntity(hPreThink, true, client);
 	DHookEntity(hWeapon_Equip, true, client);
-	DHookEntity(hSpawnHook, true, client);
+	SDKHook(client, SDKHook_SpawnPost, SpawnPost);
 	DHookEntity(hOnTakeDamage, false, client);
 }
 
@@ -563,6 +558,8 @@ public Steam_FullyLoaded()
 			Steam_SetGameDescription("Team Shell Shock");
 		else
 			Steam_SetGameDescription("Shell Shock");
+
+		CloseHandle(teamplay);
 	}
 	else
 		Steam_SetGameDescription("Shell Shock");
@@ -581,7 +578,7 @@ public OnClientDisconnect(client)
 
 public Action:OnPlayerRunCmd(client, &buttons, &impules, Float:vec[3], Float:angles[3], &weapon)
 {
-	if(IsFakeClient(client))
+	if(!IsClientConnected(client) || IsFakeClient(client))
 		return Plugin_Continue;
 	
 	//Respawn if we're dead, pushing buttons, and it's been half a second since we died.
@@ -597,25 +594,18 @@ public Action:OnPlayerRunCmd(client, &buttons, &impules, Float:vec[3], Float:ang
 		//PrintToServer("Player %i is trying to move while not alive", client);
 	}
 	
-	//Stop players from sprinting.
-	if(buttons & IN_SPEED)
-	{
-		buttons &= ~IN_SPEED;
-	}
-	
 	return Plugin_Continue;
 }
 
-public MRESReturn:SpawnPost(this)
+public void SpawnPost(int entity)
 {
 	//PrintToServer("Client %i spawn", entity);
 	//Spawn protection
-	nextEligibleDamageTime[this] = GetGameTime() + 0.5;
+	nextEligibleDamageTime[entity] = GetGameTime() + 0.5;
 	//Strip all that stuff they got in their initial spawn.
-	SDKCall(hRemoveAllItems, this, 0);
+	SDKCall(hRemoveAllItems, entity, 0);
 	
-	GivePlayerSpawnWeapons(this);
-	return MRES_Ignored;
+	GivePlayerSpawnWeapons(entity);
 }
 
 /* AMMODEFS: Name, Index, Maximum Carry
@@ -726,17 +716,17 @@ GivePlayerSpawnWeapons(client)
 * int	 	m_iDamageStats; //68
 * int	 	m_iAmmoType; //72
 */
-public MRESReturn:OnTakeDamagePre(this, Handle:hReturn, Handle:hParams)
+public MRESReturn:OnTakeDamagePre(entity, Handle:hReturn, Handle:hParams)
 {
-	if(IsFakeClient(this))
+	if(IsFakeClient(entity))
 		return MRES_Ignored;
 	new attacker = DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Ehandle);
 	new inflictor = DHookGetParamObjectPtrVar(hParams, 1, 36, ObjectValueType_Ehandle);
 	
-	if(attacker == -1 || this == -1 || (this == attacker) || inflictor == -1)
+	if(attacker == -1 || entity == -1 || (entity == attacker) || inflictor == -1)
 		return MRES_Ignored;
 	//Spawn protection
-	if(nextEligibleDamageTime[this] > GetGameTime())
+	if(nextEligibleDamageTime[entity] > GetGameTime())
 	{
 		DHookSetParamObjectPtrVar(hParams, 1, 48, ObjectValueType_Float, 0.0);
 		return MRES_Handled ;
@@ -759,34 +749,34 @@ public MRESReturn:OnTakeDamagePre(this, Handle:hReturn, Handle:hParams)
 	}
 	return MRES_Ignored;
 }
-public MRESReturn:PreThinkPost(this)
+public MRESReturn:PreThinkPost(entity)
 {
-	if(IsFakeClient(this) || !IsPlayerAlive(this))
+	if(IsFakeClient(entity) || !IsPlayerAlive(entity))
 		return MRES_Ignored;
 		
 	//Set the player's speed.
-	SetEntPropFloat(this, Prop_Send, "m_flMaxspeed", ss_playerspeed);
+//	SetEntPropFloat(entity, Prop_Send, "m_flMaxspeed", ss_playerspeed);
 		
 	return MRES_Ignored;
 }
 
-public MRESReturn:Weapon_EquipPost(this, Handle:hParams)
+public MRESReturn:Weapon_EquipPost(entity, Handle:hParams)
 {
-	if(IsFakeClient(this) || !IsPlayerAlive(this))
+	if(IsFakeClient(entity) || !IsPlayerAlive(entity))
 		return MRES_Ignored;
 		
 	new weapon = DHookGetParam(hParams, 1);
 	
 	if(weapon == -1)
 	{
-		PrintToServer("Invalid weapon in Weapon_EquipPost for Client: %i", this);
+		PrintToServer("Invalid weapon in Weapon_EquipPost for Client: %i", entity);
 		return MRES_Ignored;
 	}
 	
 	new String:weaponname[64];
 	GetEntityClassname(weapon, weaponname, 64);
 	
-	//PrintToServer("Client %i picked up weapon %s", this, weaponname);
+	//PrintToServer("Client %i picked up weapon %s", entity, weaponname);
 	
 	if(strcmp("weapon_shotgun", weaponname) == 0)
 	{
@@ -799,50 +789,50 @@ public MRESReturn:Weapon_EquipPost(this, Handle:hParams)
 	else if(strcmp("weapon_crossbow", weaponname) == 0)
 	{
 		HookCrossbow(weapon);
-		Weapon_SetOwner(weapon, this);
+		Weapon_SetOwner(weapon, entity);
 	}
 		
 	return MRES_Ignored;
 }
 
-public MRESReturn:Operator_HandleAnimEventPre(this, Handle:hParams)
+public MRESReturn:Operator_HandleAnimEventPre(entity, Handle:hParams)
 {
-	if(ThrowContactGrenade(this, hParams) == true)
+	if(ThrowContactGrenade(entity, hParams) == true)
 		return MRES_Supercede;
 	return MRES_Ignored;
 }
 
-public MRESReturn:GetMaxClip1Pre(this, Handle:hReturn)
+public MRESReturn:GetMaxClip1Pre(entity, Handle:hReturn)
 {
 	DHookSetReturn(hReturn, ss_shotgun_maxclip); 
 	return MRES_Supercede;
 }
-public MRESReturn:GetDefaultClip1Pre(this, Handle:hReturn)
+public MRESReturn:GetDefaultClip1Pre(entity, Handle:hReturn)
 {
 	DHookSetReturn(hReturn, ss_shotgun_defaultclip);
 	return MRES_Supercede;
 }
-public MRESReturn:AllowAutoSwitchFromPre(this, Handle:hReturn)
+public MRESReturn:AllowAutoSwitchFromPre(entity, Handle:hReturn)
 {
 	DHookSetReturn(hReturn, false); 
 	return MRES_Supercede;
 }
-public MRESReturn:ReloadShotgunPost(this, Handle:hReturn)
+public MRESReturn:ReloadShotgunPost(entity, Handle:hReturn)
 {
-	SetShotgunRefire(this);
+	SetShotgunRefire(entity);
 	return MRES_Ignored;
 }
-public MRESReturn:PrimaryAttackShotgunPost(this)
+public MRESReturn:PrimaryAttackShotgunPost(entity)
 {
-	SetShotgunRefire(this);
+	SetShotgunRefire(entity);
 }
-public MRESReturn:SecondaryAttackShotgunPost(this)
+public MRESReturn:SecondaryAttackShotgunPost(entity)
 {
-	SetShotgunRefire(this);
+	SetShotgunRefire(entity);
 }
-public MRESReturn:ReloadCrossbowPre(this, Handle:hReturn)
+public MRESReturn:ReloadCrossbowPre(entity, Handle:hReturn)
 {
-	//SetEntProp(this, Prop_Send, "m_bMustReload", false);
+	//SetEntProp(entity, Prop_Send, "m_bMustReload", false);
 	//DHookSetReturn(hReturn, true);
 	return MRES_Ignored;
 }
@@ -945,9 +935,9 @@ bool:ThrowContactGrenade(weaponFrag, Handle:hParams)
 	return true;
 }
 
-public MRESReturn:HasWeaponIdleTimeElapsedPre(this, Handle:hReturn)
+public MRESReturn:HasWeaponIdleTimeElapsedPre(entity, Handle:hReturn)
 {
-	new Float:m_flNextPrimaryAttack = GetEntPropFloat(this, Prop_Send, "m_flNextPrimaryAttack");
+	new Float:m_flNextPrimaryAttack = GetEntPropFloat(entity, Prop_Send, "m_flNextPrimaryAttack");
 	if(GetGameTime() >= m_flNextPrimaryAttack)
 	{
 		PrintToServer("HasWeaponIdleTimeElapsed return true");
@@ -962,16 +952,16 @@ public MRESReturn:HasWeaponIdleTimeElapsedPre(this, Handle:hReturn)
 	return MRES_Supercede;
 }
 
-public MRESReturn:PrimaryAttackCrossbowPost(this)
+public MRESReturn:PrimaryAttackCrossbowPost(entity)
 {
 	PrintToServer("PrimaryAttackCrossbowPost");
-	new Float:m_flNextAttack = GetEntPropFloat(this, Prop_Send, "m_flNextPrimaryAttack");
+	new Float:m_flNextAttack = GetEntPropFloat(entity, Prop_Send, "m_flNextPrimaryAttack");
 	PrintToServer("m_flNextAttack was: %f", m_flNextAttack);
 	m_flNextAttack -= 500.0;
 	PrintToServer("m_flNextAttack is now: %f", m_flNextAttack);
-	SetEntPropFloat(this, Prop_Send, "m_flNextPrimaryAttack", m_flNextAttack);
-	SetEntPropFloat(this, Prop_Send, "m_flNextSecondaryAttack", m_flNextAttack);
-	SetEntPropFloat(this, Prop_Send, "m_flTimeWeaponIdle", m_flNextAttack);
+	SetEntPropFloat(entity, Prop_Send, "m_flNextPrimaryAttack", m_flNextAttack);
+	SetEntPropFloat(entity, Prop_Send, "m_flNextSecondaryAttack", m_flNextAttack);
+	SetEntPropFloat(entity, Prop_Send, "m_flTimeWeaponIdle", m_flNextAttack);
 	
 	return MRES_Ignored;
 }
@@ -1058,17 +1048,17 @@ public MRESReturn:PrimaryAttackCrossbowPost(this)
  * */
 //TODO: Make this a pre hook and tweak the entire function to taste.
 //This isn't going to work.  There's no way to set the damage with this
-public MRESReturn:PrimaryAttackCrossbowPre(this)
+public MRESReturn:PrimaryAttackCrossbowPre(int entity)
 {
 	PrintToServer("Crossbow Primary Attack");
-	new Handle:client = Weapon_GetOwner(this);
+	int client = Weapon_GetOwner(entity);
 	if(client == -1)
 	{
 		PrintToServer("Client is null in Crossbow PrimaryAttack");
 		return MRES_Ignored;
 	}
 	
-	new m_iClip1 = Weapon_GetPrimaryClip(this);
+	new m_iClip1 = Weapon_GetPrimaryClip(entity);
 	if(m_iClip1 <= 0)
 	{
 		//SDKCall(hReloadCrossbow);
@@ -1155,13 +1145,13 @@ public MRESReturn:PrimaryAttackCrossbowPre(this)
 	new primaryAmmoCount = 0;
 	new secondaryAmmoCount = -1;
 	Client_GetWeaponPlayerAmmo(client, "weapon_crossbow", primaryAmmoCount, secondaryAmmoCount);
-	Client_SetWeaponPlayerAmmoEx(client, this, primaryAmmoCount - 1, secondaryAmmoCount);
+	Client_SetWeaponPlayerAmmoEx(client, entity, primaryAmmoCount - 1, secondaryAmmoCount);
 	
 	//pOwner->ViewPunch( QAngle( -2, 0, 0 ) );
 	new Float:vecPunchAngleVel[3];
 	GetEntPropVector(client, Prop_Send, "m_vecPunchAngleVel", vecPunchAngleVel);
 	new Float:vecPunchAngleAdd[3];
-	vecPunchAngleAdd[0] = -40;
+	vecPunchAngleAdd[0] = -40.0;
 	AddVectors(vecPunchAngleVel, vecPunchAngleAdd, vecPunchAngleVel);
 	PrintToServer("m_vecPunchAngleVel: (%f, %f, %f)", vecPunchAngleVel[0], vecPunchAngleVel[1], vecPunchAngleVel[2]);
 	SetEntPropVector(client, Prop_Send, "m_vecPunchAngleVel", vecPunchAngleVel);
@@ -1179,12 +1169,12 @@ public MRESReturn:PrimaryAttackCrossbowPre(this)
 	
 	//m_flNextPrimaryAttack = m_flNextSecondaryAttack	= gpGlobals->curtime + 0.75;
 	//Primary Attack set to .5
-	new Float:m_flNextAttack = GetGameTime() + 0.25;//GetEntPropFloat(this, Prop_Send, "m_flNextPrimaryAttack");
-	SetEntPropFloat(this, Prop_Send, "m_flNextPrimaryAttack", m_flNextAttack);
-	SetEntPropFloat(this, Prop_Send, "m_flNextSecondaryAttack", m_flNextAttack);
+	new Float:m_flNextAttack = GetGameTime() + 0.25;//GetEntPropFloat(entity, Prop_Send, "m_flNextPrimaryAttack");
+	SetEntPropFloat(entity, Prop_Send, "m_flNextPrimaryAttack", m_flNextAttack);
+	SetEntPropFloat(entity, Prop_Send, "m_flNextSecondaryAttack", m_flNextAttack);
 	
 	//No idle
-	SDKCall(hSetWeaponIdleTime, this, GetGameTime() - 1.5);
+	SDKCall(hSetWeaponIdleTime, entity, GetGameTime() - 1.5);
 	
 	return MRES_Supercede;
 }

@@ -13,51 +13,51 @@
 			}
 			"PreThink"
 			{
-				"windows"	"330"
-				"linux"		"331"
-				"mac"		"331"
+				"windows"	"332"
+				"linux"		"333"
+				"mac"		"333"
 			}
 			"GiveAmmo"
 			{
-				"windows"	"250"
-				"linux"		"251"
-				"mac"		"251"
+				"windows"	"252"
+				"linux"		"253"
+				"mac"		"253"
 			}
 			"RemoveAllItems"
 			{
-				"windows"	"340"
-				"linux"		"341"
-				"mac"		"341"
+				"windows"	"342"
+				"linux"		"343"
+				"mac"		"343"
 			}
 			"SetAnimation"
 			{
-				"windows"	"362"
-				"linux"		"363"
-				"mac"		"363"
+				"windows"	"365"
+				"linux"		"366"
+				"mac"		"366"
 			}
 			"HandleAnimEvent"
 			{
-				"windows"	"201"
-				"linux"		"202"
-				"mac"		"202"
+				"windows"	"203"
+				"linux"		"204"
+				"mac"		"204"
 			}
 			"GetMaxClip1"
 			{
-				"windows"	"309"
-				"linux"		"310"
-				"mac"		"310"
+				"windows"	"306"
+				"linux"		"307"
+				"mac"		"307"
 			}
 			"GetDefaultClip1"
 			{
-				"windows"	"311"
-				"linux"		"312"
-				"mac"		"312"
+				"windows"	"308"
+				"linux"		"309"
+				"mac"		"309"
 			}
 			"AllowAutoSwitchFrom"
 			{
-				"windows"	"315"
-				"linux"		"316"
-				"mac"		"316"
+				"windows"	"312"
+				"linux"		"313"
+				"mac"		"313"
 			}
 			"Operator_HandleAnimEvent"
 			{
@@ -67,45 +67,45 @@
 			}
 			"Reload"
 			{
-				"windows"	"267"
-				"linux"		"268"
-				"mac"		"268"
+				"windows"	"265"
+				"linux"		"266"
+				"mac"		"266"
 			}
 			"HasWeaponIdleTimeElapsed"
 			{
-				"windows"	"237"
-				"linux"		"238"
-				"mac"		"238"
+				"windows"	"234"
+				"linux"		"235"
+				"mac"		"235"
 			}
 			"Weapon_Equip"
 			{
-				"windows"	"259"
-				"linux"		"260"
-				"mac"		"260"
+				"windows"	"261"
+				"linux"		"262"
+				"mac"		"262"
 			}
 			"PrimaryAttack"
 			{
-				"windows"	"271"
-				"linux"		"272"
-				"mac"		"272"
+				"windows"	"268"
+				"linux"		"269"
+				"mac"		"269"
 			}
 			"SecondaryAttack"
 			{
-				"windows"	"272"
-				"linux"		"273"
-				"mac"		"273"
+				"windows"	"269"
+				"linux"		"270"
+				"mac"		"270"
 			}
 			"SetWeaponIdleTime"
 			{
-				"windows"	"238"
-				"linux"		"239"
-				"mac"		"239"
+				"windows"	"235"
+				"linux"		"236"
+				"mac"		"236"
 			}
 			"FireBullets"
 			{
-				"windows"	"111"
-				"linux"		"112"
-				"mac"		"112"
+				"windows"	"112"
+				"linux"		"113"
+				"mac"		"113"
 			}
 			"OnTakeDamage"
 			{
